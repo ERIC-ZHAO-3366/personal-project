@@ -141,9 +141,15 @@
       <button id="auto-scale" type="button">自动估算</button>
     </div>
     <div class="controls">
-      <label style="font-weight:600;font-size:13px;">画布方向：</label>
-      <label class="radio"><input type="radio" name="orientation" value="portrait" checked> 纵向</label>
-      <label class="radio"><input type="radio" name="orientation" value="landscape"> 横向</label>
+      <label style="font-weight:600;font-size:13px;">尺寸(px)：</label>
+      <input id="canvas-w" type="number" value="4962" step="1" style="width:60px;padding:4px;border:1px solid #d8cfc4;border-radius:6px;font-size:12px;">
+      <span style="font-size:12px;color:var(--muted)">×</span>
+      <input id="canvas-h" type="number" value="7014" step="1" style="width:60px;padding:4px;border:1px solid #d8cfc4;border-radius:6px;font-size:12px;">
+    </div>
+    <div class="controls">
+      <label style="font-weight:600;font-size:13px;">预设：</label>
+      <label class="radio"><input type="radio" name="orientation" value="portrait" checked> A4纵向</label>
+      <label class="radio"><input type="radio" name="orientation" value="landscape"> A4横向</label>
     </div>
     <div class="controls">
       <label style="font-weight:600;font-size:13px;">背景：</label>
@@ -197,6 +203,8 @@
     const fontInput = document.getElementById('font-input');
     const fontTrigger = document.getElementById('font-trigger');
     const fontName = document.getElementById('font-name');
+    const canvasWInput = document.getElementById('canvas-w');
+    const canvasHInput = document.getElementById('canvas-h');
     const orientationInputs = document.querySelectorAll('input[name="orientation"]');
     const bgModeInputs = document.querySelectorAll('input[name="bg-mode"]');
     const bgColorInput = document.getElementById('bg-color');
@@ -564,17 +572,23 @@
       scaleValue.textContent = scale.toFixed(2);
     }
 
-    function setOrientation(mode) {
-      if (mode === 'landscape') {
-        applyCanvasSize(7014, 4962);
-      } else {
-        applyCanvasSize(4962, 7014);
-      }
+    function updateCanvasSize(w, h, label) {
+      applyCanvasSize(w, h);
+      canvasWInput.value = w;
+      canvasHInput.value = h;
       // 清屏以避免旧画面尺寸错位
       ctx.fillStyle = BACKGROUND;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       refreshSuggestedScale();
-      logLine(`已切换画布为${mode === 'landscape' ? '横向' : '纵向'} (${CANVAS_W}×${CANVAS_H})`);
+      logLine(label || `画布尺寸变更为 ${w}×${h}`);
+    }
+
+    function setOrientation(mode) {
+      if (mode === 'landscape') {
+        updateCanvasSize(7014, 4962, `已切换画布为横向 (7014×4962)`);
+      } else {
+        updateCanvasSize(4962, 7014, `已切换画布为纵向 (4962×7014)`);
+      }
     }
 
     orientationInputs.forEach(inp => {
@@ -582,6 +596,17 @@
         if (inp.checked) setOrientation(inp.value);
       });
     });
+
+    function onCustomSizeChange() {
+      const w = parseInt(canvasWInput.value, 10);
+      const h = parseInt(canvasHInput.value, 10);
+      if (w > 0 && h > 0) {
+        orientationInputs.forEach(i => i.checked = false);
+        updateCanvasSize(w, h);
+      }
+    }
+    canvasWInput.addEventListener('change', onCustomSizeChange);
+    canvasHInput.addEventListener('change', onCustomSizeChange);
 
     // Background UI wiring
     bgFileTrigger.addEventListener('click', () => bgFileInput.click());
@@ -593,7 +618,9 @@
         const useImage = bgMode === 'image';
         bgFileTrigger.disabled = !useImage;
         bgOpacityRange.disabled = !useImage;
-        bgColorInput.disabled = useImage;
+        // 若选择图片则颜色同时可选，若只选择纯色则图片不可选
+        // 颜色选择器始终可用，因为图片模式下也需要底色
+        bgColorInput.disabled = false;
         logLine(`背景模式：${useImage ? '图片' : '纯色'}`);
         redraw();
       });
